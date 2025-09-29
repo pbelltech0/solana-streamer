@@ -22,3 +22,8 @@ Cargo.lock
 
 .cargo/
 .claude/
+
+# Log files
+*.log
+log.output
+logs/
