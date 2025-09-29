@@ -27,3 +27,10 @@ Cargo.lock
 *.log
 log.output
 logs/
+
+# Anchor / Solana program artifacts
+programs/**/target/
+programs/**/.anchor/
+.anchor/
+test-ledger/
+*.so
