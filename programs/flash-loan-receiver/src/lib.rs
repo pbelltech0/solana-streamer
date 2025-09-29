@@ -1,7 +1,9 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-declare_id!("F1ashLoanRcvrXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+// Placeholder program ID - replace with actual deployed program ID
+// To get actual ID after deployment: anchor keys list
+declare_id!("F1ash1oanReceiver1111111111111111111111111");
 
 #[program]
 pub mod flash_loan_receiver {

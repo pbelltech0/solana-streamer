@@ -10,11 +10,27 @@ use anyhow::Result;
 
 use crate::flash_loan::opportunity_detector::ArbitrageOpportunity;
 
+/// Simulation result showing what would happen in a flash loan
+#[derive(Debug, Clone)]
+pub struct SimulationResult {
+    pub would_succeed: bool,
+    pub loan_amount: u64,
+    pub expected_profit: u64,
+    pub flash_loan_fee: u64,
+    pub swap_fees: u64,
+    pub total_fees: u64,
+    pub net_profit: u64,
+    pub pool_a: Pubkey,
+    pub pool_b: Pubkey,
+    pub reason: String,
+}
+
 /// Builds and submits flash loan transactions
 pub struct FlashLoanTxBuilder {
     client: RpcClient,
     payer: Keypair,
     flash_loan_receiver_program: Pubkey,
+    simulation_mode: bool,
 }
 
 impl FlashLoanTxBuilder {
@@ -27,14 +43,108 @@ impl FlashLoanTxBuilder {
             client: RpcClient::new(rpc_url),
             payer,
             flash_loan_receiver_program,
+            simulation_mode: false,
         }
     }
 
-    /// Build and submit flash loan transaction
+    /// Create a builder in simulation mode (no actual transactions)
+    pub fn new_simulation_mode(
+        rpc_url: String,
+        payer: Keypair,
+        flash_loan_receiver_program: Pubkey,
+    ) -> Self {
+        Self {
+            client: RpcClient::new(rpc_url),
+            payer,
+            flash_loan_receiver_program,
+            simulation_mode: true,
+        }
+    }
+
+    /// Enable or disable simulation mode
+    pub fn set_simulation_mode(&mut self, enabled: bool) {
+        self.simulation_mode = enabled;
+    }
+
+    /// Check if simulation mode is enabled
+    pub fn is_simulation_mode(&self) -> bool {
+        self.simulation_mode
+    }
+
+    /// Simulate flash loan execution without submitting transaction
+    pub fn simulate_flash_loan_detailed(
+        &self,
+        opportunity: &ArbitrageOpportunity,
+    ) -> SimulationResult {
+        let loan_amount = opportunity.loan_amount;
+
+        // Calculate all fees
+        let flash_loan_fee = (loan_amount as u128 * 9 / 10000) as u64; // 0.09%
+        let swap_fee_a = (loan_amount as u128 * 25 / 10000) as u64;    // 0.25%
+        let swap_fee_b = (loan_amount as u128 * 25 / 10000) as u64;    // 0.25%
+        let swap_fees = swap_fee_a + swap_fee_b;
+        let total_fees = flash_loan_fee + swap_fees;
+
+        // Calculate expected outcomes
+        let price_spread = opportunity.price_b - opportunity.price_a;
+        let price_spread_pct = price_spread / opportunity.price_a;
+
+        // Gross profit from arbitrage
+        let gross_profit = (loan_amount as f64 * price_spread_pct) as u64;
+
+        // Net profit after fees
+        let (net_profit, would_succeed, reason) = if gross_profit > total_fees {
+            let profit = gross_profit - total_fees;
+            (
+                profit,
+                true,
+                format!(
+                    "Profitable! Spread: {:.2}%, Gross: {} lamports, Fees: {} lamports",
+                    price_spread_pct * 100.0,
+                    gross_profit,
+                    total_fees
+                ),
+            )
+        } else {
+            (
+                0,
+                false,
+                format!(
+                    "Not profitable. Gross profit {} < Fees {}",
+                    gross_profit, total_fees
+                ),
+            )
+        };
+
+        SimulationResult {
+            would_succeed,
+            loan_amount,
+            expected_profit: gross_profit,
+            flash_loan_fee,
+            swap_fees,
+            total_fees,
+            net_profit,
+            pool_a: opportunity.pool_a,
+            pool_b: opportunity.pool_b,
+            reason,
+        }
+    }
+
+    /// Build and submit flash loan transaction (or simulate if in simulation mode)
     pub async fn execute_flash_loan(
         &self,
         opportunity: &ArbitrageOpportunity,
     ) -> Result<Signature> {
+        if self.simulation_mode {
+            log::info!("🧪 SIMULATION MODE - No transaction will be submitted");
+            let sim = self.simulate_flash_loan_detailed(opportunity);
+            log::info!("Simulation result: {:?}", sim);
+
+            return Err(anyhow::anyhow!(
+                "Simulation mode enabled. To execute real transactions, disable simulation mode."
+            ));
+        }
+
         // 1. Build flash loan instruction (from Solend)
         let flash_loan_ix = self.build_solend_flash_loan_instruction(opportunity)?;
 

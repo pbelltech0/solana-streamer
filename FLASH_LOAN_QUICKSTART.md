@@ -1,40 +1,103 @@
 # Flash Loan Arbitrage - Quick Start Guide
 
-## Running the Opportunity Detector (Test Mode)
+## Three Modes of Operation
 
-To monitor for arbitrage opportunities WITHOUT executing flash loans:
+### 1. Opportunity Detection Only (Safest)
+
+Monitor for arbitrage opportunities WITHOUT any transaction logic:
 
 ```bash
 cargo run --example arbitrage_opportunity_detector
 ```
 
-### What it does:
-- ✅ Connects to Solana via Yellowstone gRPC
-- ✅ Monitors Raydium CLMM swap events in real-time
-- ✅ Tracks pool state changes for liquidity data
+**What it does:**
 - ✅ Detects price discrepancies between pools
-- ✅ Calculates profitability (including all fees)
-- ✅ Logs opportunities to console and `logs/arbitrage_opportunities.log`
-- ❌ **Does NOT execute flash loans** (safe for testing)
+- ✅ Calculates profitability
+- ✅ Logs opportunities
+- ❌ NO transaction building
+- ❌ NO flash loan logic
 
-### Example Output
+### 2. Full Simulation Mode (Recommended for Testing)
 
-When an opportunity is detected:
+Run complete flash loan logic WITHOUT submitting to blockchain:
+
+```bash
+cargo run --example flash_loan_simulation
+```
+
+**What it does:**
+- ✅ Detects arbitrage opportunities
+- ✅ Builds flash loan transaction logic
+- ✅ Calculates all fees (flash loan + swaps)
+- ✅ Shows detailed profit/loss breakdown
+- ✅ Simulates execution success/failure
+- ✅ Tracks simulated profits
+- ❌ **Does NOT submit transactions to chain** (100% safe)
+
+### 3. Production Mode (Real Transactions)
+
+Execute actual flash loans on mainnet:
+
+```bash
+# Coming soon - requires deployed program
+cargo run --example flash_loan_production
+```
+
+**What it does:**
+- ✅ Everything from simulation mode
+- ⚠️ **PLUS: Submits real transactions**
+- ⚠️ **Costs real SOL for fees**
+- ⚠️ **Requires deployed program**
+
+## Example Output
+
+### Mode 1: Detection Only
 ```
 🎯 ARBITRAGE OPPORTUNITY DETECTED!
-   Pool A: 7Z4nN5QsYxHYP...
-   Pool B: 9Kf4P2mGxVwT...
-   Token: EPjFWdd5AufqSS...
-   Price A: $1.002345
-   Price B: $1.015678
+   Pool A (buy): 7Z4nN5QsYxHYP...
+   Pool B (sell): 9Kf4P2mGxVwT...
    Price Spread: 1.33%
-   Expected Profit: 2450000 lamports (0.002450 SOL)
-   Loan Amount: 50000000000 lamports (50.000 SOL)
+   Expected Profit: 0.002450 SOL
    Confidence: 85%
-   Timestamp: 1711234567
 
-💭 In production mode, this would trigger a flash loan execution
+💭 In production mode, this would trigger a flash loan
    Status: TEST MODE - no action taken
+```
+
+### Mode 2: Full Simulation
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 FLASH LOAN SIMULATION #42
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Opportunity Details:
+   Pool A (buy):  7Z4nN5QsYxHYP...
+   Pool B (sell): 9Kf4P2mGxVwT...
+   Price A:       1.0023450000
+   Price B:       1.0156780000
+   Price Spread:  1.33%
+
+💰 Financial Breakdown:
+   Loan Amount:       50000000000 lamports (50.000000 SOL)
+   Expected Profit:    665000000 lamports (0.665000 SOL)
+
+   📝 Fee Breakdown:
+      Flash Loan Fee:    45000 lamports (0.000045 SOL) [0.09%]
+      Swap Fees:        250000 lamports (0.000250 SOL) [0.50%]
+      Total Fees:       295000 lamports (0.000295 SOL)
+
+✅ SIMULATION RESULT: SUCCESS
+   Net Profit:       370000 lamports (0.000370 SOL)
+   ROI:              0.74%
+   Confidence: 85%
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 Running Statistics:
+   Total Events:        1000
+   Opportunities:       15
+   Successful Sims:     8 ✅
+   Failed Sims:         7 ❌
+   Total Profit (sim):  0.003240 SOL
+   Avg Profit:          0.000405 SOL
 ```
 
 ### Configuration
