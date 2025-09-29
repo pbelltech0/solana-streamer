@@ -89,10 +89,10 @@ async fn get_single_transaction_details(signature_str: &str) -> Result<()> {
                 }
             }
             let protocols = vec![
-                Protocol::Bonk,
+                // Protocol::Bonk,
                 Protocol::RaydiumClmm,
-                Protocol::PumpSwap,
-                Protocol::PumpFun,
+                // Protocol::PumpSwap,
+                // Protocol::PumpFun,
                 Protocol::RaydiumCpmm,
                 Protocol::RaydiumAmmV4,
             ];

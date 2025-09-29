@@ -1,0 +1,134 @@
+{
+  "event_type": "AccountRaydiumClmmTickArrayState",
+  "transaction_index": null,
+  "event_data": {
+    "metadata": {
+      "signature": "2XMEVBipmqNLvpUH2xfHdhFrMAeQv62oVrDHv8Euq6JfMDXagHytGjgSbnQznHY9wQTcbs4aibwTzgKGpq8rH2ie",
+      "slot": 370087471,
+      "transaction_index": null,
+      "block_time": 0,
+      "block_time_ms": 0,
+      "recv_us": 1759167195856012,
+      "handle_us": 1944,
+      "protocol": "RaydiumClmm",
+      "event_type": "AccountRaydiumClmmTickArrayState",
+      "program_id": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
+      "swap_data": null,
+      "outer_index": 0,
+      "inner_index": null
+    },
+    "pubkey": "EHLbGyhTj2PCKAtXp4jZo1ZTJM5h3xw5A9divafyMxC1",
+    "executable": false,
+    "lamports": 72161280,
+    "owner": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
+    "rent_epoch": 18446744073709551615,
+    "tick_array_state": {
+      "pool_id": "AQAGYQsdU853WAKhXM79CgNdoyhrRwXvYHX6qrDyC1FS",
+      "start_tick_index": -10800,
+      "ticks": [
+        {
+          "tick": 0,
+          "liquidity_net": 0,
+          "liquidity_gross": 0,
+          "fee_growth_outside0_x64": 0,
+          "fee_growth_outside1_x64": 0,
+          "reward_growths_outside_x64": [0, 0, 0],
+          "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tick": -10740,
+          "liquidity_net": -5966659855,
+          "liquidity_gross": 5966659855,
+          "fee_growth_outside0_x64": 0,
+          "fee_growth_outside1_x64": 0,
+          "reward_growths_outside_x64": [0, 0, 0],
+          "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tick": 0,
+          "liquidity_net": 0,
+          "liquidity_gross": 0,
+          "fee_growth_outside0_x64": 0,
+          "fee_growth_outside1_x64": 0,
+          "reward_growths_outside_x64": [0, 0, 0],
+          "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tick": 0,
+          "liquidity_net": 0,
+          "liquidity_gross": 0,
+          "fee_growth_outside0_x64": 0,
+          "fee_growth_outside1_x64": 0,
+          "reward_growths_outside_x64": [0, 0, 0],
+          "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tick": 0,
+          "liquidity_net": 0,
+          "liquidity_gross": 0,
+          "fee_growth_outside0_x64": 0,
+          "fee_growth_outside1_x64": 0,
+          "reward_growths_outside_x64": [0, 0, 0],
+          "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tick": -10500,
+          "liquidity_net": 0,
+          "liquidity_gross": 0,
+          "fee_growth_outside0_x64": 0,
+          "fee_growth_outside1_x64": 0,
+          "reward_growths_outside_x64": [0, 0, 0],
+          "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tick": 0,
+          "liquidity_net": 0,
+          "liquidity_gross": 0,
+          "fee_growth_outside0_x64": 0,
+          "fee_growth_outside1_x64": 0,
+          "reward_growths_outside_x64": [0, 0, 0],
+          "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tick": 0,
+          "liquidity_net": 0,
+          "liquidity_gross": 0,
+          "fee_growth_outside0_x64": 0,
+          "fee_growth_outside1_x64": 0,
+          "reward_growths_outside_x64": [0, 0, 0],
+          "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tick": 0,
+          "liquidity_net": 0,
+          "liquidity_gross": 0,
+          "fee_growth_outside0_x64": 0,
+          "fee_growth_outside1_x64": 0,
+          "reward_growths_outside_x64": [0, 0, 0],
+          "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tick": 0,
+          "liquidity_net": 0,
+          "liquidity_gross": 0,
+          "fee_growth_outside0_x64": 0,
+          "fee_growth_outside1_x64": 0,
+          "reward_growths_outside_x64": [0, 0, 0],
+          "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tick": -10200,
+          "liquidity_net": -224521837412,
+          "liquidity_gross": 224521837412,
+          "fee_growth_outside0_x64": 0,
+          "fee_growth_outside1_x64": 0,
+          "reward_growths_outside_x64": [0, 0, 0],
+          "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        }
+      ],
+      "initialized_tick_count": 2,
+      "recent_epoch": 856,
+      "padding": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    }
+  }
+}

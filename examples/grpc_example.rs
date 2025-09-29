@@ -75,11 +75,11 @@ async fn test_grpc() -> Result<(), Box<dyn std::error::Error>> {
 
     // Will try to parse corresponding protocol events from transactions
     let protocols = vec![
-        Protocol::PumpFun,
-        Protocol::PumpSwap,
-        Protocol::Bonk,
-        Protocol::RaydiumCpmm,
-        Protocol::RaydiumClmm,
+        // Protocol::PumpFun,
+        // Protocol::PumpSwap,
+        // Protocol::Bonk,
+        // Protocol::RaydiumCpmm, 
+        // Protocol::RaydiumClmm,
         Protocol::RaydiumAmmV4,
     ];
 
