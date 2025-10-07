@@ -22,3 +22,5 @@ Cargo.lock
 
 .cargo/
 .claude/log.out
+
+log.out
