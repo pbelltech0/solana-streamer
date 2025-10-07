@@ -6,8 +6,18 @@ pub mod shred;
 pub mod shred_stream;
 pub mod yellowstone_grpc;
 pub mod yellowstone_sub_system;
+pub mod liquidity_monitor;
+pub mod enhanced_arbitrage;
+pub mod pool_state_fetcher;
+pub mod pyth_price_monitor;
+pub mod pyth_arb_validator;
 
 pub use arbitrage::{ArbitrageDetector, ArbitrageOpportunity, DexType, PriceQuote, TokenPair};
 pub use shred::ShredStreamGrpc;
 pub use yellowstone_grpc::YellowstoneGrpc;
 pub use yellowstone_sub_system::{SystemEvent, TransferInfo};
+pub use liquidity_monitor::{LiquidityMonitor, PoolState, DexType as LiquidityDexType};
+pub use enhanced_arbitrage::{EnhancedArbitrageDetector, EnhancedArbitrageOpportunity, MonitoredPair};
+pub use pool_state_fetcher::PoolStateFetcher;
+pub use pyth_price_monitor::{PythPriceMonitor, PythPriceFeedConfig, PythPriceData};
+pub use pyth_arb_validator::{PythArbValidator, ValidationResult, OracleValidationConfig};
