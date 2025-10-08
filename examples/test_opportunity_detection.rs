@@ -3,7 +3,6 @@
 /// Run with: cargo run --example test_opportunity_detection
 
 use solana_streamer_sdk::flash_loan::OpportunityDetector;
-use solana_sdk::pubkey::Pubkey;
 
 fn main() {
     println!("🧪 Testing Flash Loan Opportunity Detection Logic\n");
@@ -11,26 +10,39 @@ fn main() {
 
     // Test 1: Basic detector creation
     println!("\n✓ Test 1: Detector initialization");
-    let detector = OpportunityDetector::new(
+    let _detector = OpportunityDetector::new(
         1_000_000,        // 0.001 SOL min profit
         100_000_000_000,  // 100 SOL max loan
+        10_000_000_000,   // 10 SOL min liquidity per pool
+        50_000_000_000,   // 50 SOL min combined liquidity
     );
     println!("  Min profit threshold: 1,000,000 lamports (0.001 SOL)");
     println!("  Max loan amount: 100,000,000,000 lamports (100 SOL)");
+    println!("  Min liquidity per pool: 10,000,000,000 lamports (10 SOL)");
+    println!("  Min combined liquidity: 50,000,000,000 lamports (50 SOL)");
 
     // Test 2: Fee calculations
     println!("\n✓ Test 2: Fee calculations");
-    let loan_amount = 10_000_000_000u64; // 10 SOL
-    let flash_loan_fee = (loan_amount as u128 * 9 / 10000) as u64; // 0.09%
-    let swap_fee_a = (loan_amount as u128 * 25 / 10000) as u64;    // 0.25%
-    let swap_fee_b = (loan_amount as u128 * 25 / 10000) as u64;    // 0.25%
+    let loan_amount = 10_000_000_000u64; // 10 SOL (in quote token)
+
+    // Fee constants
+    const FLASH_LOAN_FEE_RATE: f64 = 0.0009; // 0.09%
+    const SWAP_FEE_RATE: f64 = 0.0025;       // 0.25% per swap
+
+    let flash_loan_fee = (loan_amount as f64 * FLASH_LOAN_FEE_RATE) as u64;
+
+    // For demonstration, assuming price_a = 1.0
+    let price_a = 1.0;
+    let swap_fee_a = (loan_amount as f64 * SWAP_FEE_RATE) as u64;
+    let token0_amount = (loan_amount as f64 * (1.0 - SWAP_FEE_RATE)) / price_a;
+    let swap_fee_b = (token0_amount * SWAP_FEE_RATE) as u64;
     let total_fees = flash_loan_fee + swap_fee_a + swap_fee_b;
 
-    println!("  Loan amount:      {} lamports (10 SOL)", loan_amount);
+    println!("  Loan amount:      {} lamports ({:.3} SOL)", loan_amount, loan_amount as f64 / 1e9);
     println!("  Flash loan fee:   {} lamports ({:.6} SOL) [0.09%]", flash_loan_fee, flash_loan_fee as f64 / 1e9);
-    println!("  Swap fee A:       {} lamports ({:.6} SOL) [0.25%]", swap_fee_a, swap_fee_a as f64 / 1e9);
-    println!("  Swap fee B:       {} lamports ({:.6} SOL) [0.25%]", swap_fee_b, swap_fee_b as f64 / 1e9);
-    println!("  Total fees:       {} lamports ({:.6} SOL) [0.59%]", total_fees, total_fees as f64 / 1e9);
+    println!("  Swap fee A:       {} lamports ({:.6} SOL) [0.25% on loan]", swap_fee_a, swap_fee_a as f64 / 1e9);
+    println!("  Swap fee B:       {} lamports ({:.6} SOL) [0.25% on converted amount]", swap_fee_b, swap_fee_b as f64 / 1e9);
+    println!("  Total fees:       {} lamports ({:.6} SOL)", total_fees, total_fees as f64 / 1e9);
 
     // Test 3: Profitability scenarios
     println!("\n✓ Test 3: Profitability calculations");
@@ -44,9 +56,14 @@ fn main() {
 
     for (name, price_a, price_b, should_profit) in test_scenarios {
         let spread = (price_b - price_a) / price_a;
-        let gross_profit = (loan_amount as f64 * spread) as u64;
-        let net_profit = if gross_profit > total_fees {
-            gross_profit - total_fees
+
+        // Corrected calculation using actual arbitrage flow
+        let swap_fee_multiplier = (1.0 - SWAP_FEE_RATE) * (1.0 - SWAP_FEE_RATE);
+        let price_multiplier = price_b / price_a;
+        let net_received = loan_amount as f64 * swap_fee_multiplier * price_multiplier;
+        let repayment = loan_amount as f64 * (1.0 + FLASH_LOAN_FEE_RATE);
+        let net_profit = if net_received > repayment {
+            (net_received - repayment) as u64
         } else {
             0
         };
@@ -56,7 +73,8 @@ fn main() {
         println!("    Price A: {:.4}", price_a);
         println!("    Price B: {:.4}", price_b);
         println!("    Spread: {:.2}%", spread * 100.0);
-        println!("    Gross profit: {} lamports ({:.6} SOL)", gross_profit, gross_profit as f64 / 1e9);
+        println!("    Net received: {:.0} lamports ({:.6} SOL)", net_received, net_received / 1e9);
+        println!("    Must repay: {:.0} lamports ({:.6} SOL)", repayment, repayment / 1e9);
         println!("    Net profit: {} lamports ({:.6} SOL)", net_profit, net_profit as f64 / 1e9);
         println!("    Result: {}", if is_profitable { "✅ PROFITABLE" } else { "❌ UNPROFITABLE" });
 

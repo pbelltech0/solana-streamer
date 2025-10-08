@@ -8,5 +8,5 @@
 pub mod opportunity_detector;
 pub mod transaction_builder;
 
-pub use opportunity_detector::{OpportunityDetector, ArbitrageOpportunity};
+pub use opportunity_detector::{OpportunityDetector, ArbitrageOpportunity, PoolProtocol};
 pub use transaction_builder::{FlashLoanTxBuilder, SimulationResult};

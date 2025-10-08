@@ -45,9 +45,13 @@ async fn detect_opportunities() -> Result<(), Box<dyn std::error::Error>> {
     // Parameters:
     // - min_profit_threshold: 1,000,000 lamports = 0.001 SOL
     // - max_loan_amount: 100,000,000,000 lamports = 100 SOL
+    // - min_liquidity_threshold: 10,000,000,000 lamports = 10 SOL per pool
+    // - min_combined_liquidity: 50,000,000,000 lamports = 50 SOL combined
     let detector = Arc::new(Mutex::new(OpportunityDetector::new(
         1_000_000,           // 0.001 SOL minimum profit
         100_000_000_000,     // 100 SOL max loan
+        10_000_000_000,      // 10 SOL min per pool
+        50_000_000_000,      // 50 SOL min combined
     )));
 
     // Statistics tracking
@@ -95,7 +99,7 @@ async fn detect_opportunities() -> Result<(), Box<dyn std::error::Error>> {
 
                 // Analyze the swap for arbitrage opportunities
                 let mut det = detector.lock().unwrap();
-                if let Some(opportunity) = det.analyze_swap_event(&swap_event) {
+                if let Some(opportunity) = det.analyze_clmm_swap_event(&swap_event) {
                     let mut s = stats.lock().unwrap();
                     s.opportunities_detected += 1;
                     drop(s);
@@ -147,7 +151,7 @@ async fn detect_opportunities() -> Result<(), Box<dyn std::error::Error>> {
                 drop(s);
 
                 let mut det = detector.lock().unwrap();
-                det.update_pool_state(&pool_event);
+                det.update_clmm_pool_state(&pool_event);
             }
         });
 

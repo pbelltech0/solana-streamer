@@ -91,12 +91,17 @@ async fn test_grpc() -> Result<(), Box<dyn std::error::Error>> {
     println!("Logging to: logs/events.log");
     println!("Flash loan opportunities: logs/flash_loan_opportunities.log");
 
-    // Initialize opportunity detector
+    // Initialize opportunity detector with high-liquidity requirements
+    // This ensures we only find opportunities in pools with substantial liquidity
     // Min profit: 0.001 SOL (1,000,000 lamports)
     // Max loan: 100 SOL (100,000,000,000 lamports)
+    // Min liquidity per pool: 10 SOL (10,000,000,000 lamports)
+    // Min combined liquidity: 50 SOL (50,000_000_000 lamports)
     let detector = Arc::new(Mutex::new(OpportunityDetector::new(
-        1_000_000,
-        100_000_000_000,
+        1_000_000,           // 0.001 SOL min profit
+        100_000_000_000,     // 100 SOL max loan
+        10_000_000_000,      // 10 SOL min per pool
+        50_000_000_000,      // 50 SOL min combined
     )));
 
     // Create low-latency configuration
@@ -120,7 +125,7 @@ async fn test_grpc() -> Result<(), Box<dyn std::error::Error>> {
         // Protocol::Bonk,
         // Protocol::RaydiumCpmm, 
         Protocol::RaydiumClmm,
-        // Protocol::RaydiumAmmV4,
+        Protocol::RaydiumAmmV4,
     ];
 
     println!("Protocols to monitor: {:?}", protocols);
@@ -287,7 +292,7 @@ fn create_event_callback(
 
                 // Analyze swap for flash loan opportunities
                 let mut det = detector.lock().unwrap();
-                if let Some(opportunity) = det.analyze_swap_event(&e) {
+                if let Some(opportunity) = det.analyze_clmm_swap_event(&e) {
                     drop(det); // Release lock before logging
 
                     // Update opportunities counter
@@ -301,13 +306,23 @@ fn create_event_callback(
 
                     // Only show high-quality opportunities (confidence >= 60% and spread >= 1%)
                     if opportunity.confidence >= 60 && spread_pct >= 1.0 {
+                        // Format protocol names for display
+                        let protocol_a = match opportunity.pool_a_protocol {
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumClmm => "CLMM",
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumAmmV4 => "AMMv4",
+                        };
+                        let protocol_b = match opportunity.pool_b_protocol {
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumClmm => "CLMM",
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumAmmV4 => "AMMv4",
+                        };
+
                         // Log to console with clear formatting
                         println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
                         println!("💰 FLASH LOAN OPPORTUNITY DETECTED");
                         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
                         println!("📊 Arbitrage Details:");
-                        println!("   Pool A (buy):    {}", opportunity.pool_a);
-                        println!("   Pool B (sell):   {}", opportunity.pool_b);
+                        println!("   Pool A (buy):    {} [{}]", opportunity.pool_a, protocol_a);
+                        println!("   Pool B (sell):   {} [{}]", opportunity.pool_b, protocol_b);
                         println!("   Base Token:      {}", opportunity.base_token);
                         println!("   Quote Token:     {}", opportunity.quote_token);
                         println!("   Price A:         {:.10}", opportunity.price_a);
@@ -322,16 +337,25 @@ fn create_event_callback(
                         println!("   Confidence:      {}%\n", opportunity.confidence);
 
                         println!("🎯 EXECUTION READY");
-                        println!("   This opportunity can be executed when flash loan");
-                        println!("   transaction logic is implemented below.");
+                        println!("   Cross-protocol arb: {} ↔ {}", protocol_a, protocol_b);
                         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
                     }
 
                     // Write to opportunities log file
                     if let Ok(mut file) = opportunities_log.lock() {
+                        let protocol_a = match opportunity.pool_a_protocol {
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumClmm => "CLMM",
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumAmmV4 => "AMMv4",
+                        };
+                        let protocol_b = match opportunity.pool_b_protocol {
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumClmm => "CLMM",
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumAmmV4 => "AMMv4",
+                        };
                         let log_entry = format!(
-                            "{} | Profit: {:.6} SOL | Spread: {:.2}% | Confidence: {}% | Loan: {:.6} SOL | Pool A: {} | Pool B: {}\n",
+                            "{} | {} ↔ {} | Profit: {:.6} SOL | Spread: {:.2}% | Confidence: {}% | Loan: {:.6} SOL | Pool A: {} | Pool B: {}\n",
                             chrono::Utc::now().format("%Y-%m-%d %H:%M:%S"),
+                            protocol_a,
+                            protocol_b,
                             opportunity.expected_profit as f64 / 1e9,
                             spread_pct,
                             opportunity.confidence,
@@ -413,6 +437,90 @@ fn create_event_callback(
             // -------------------------- raydium_amm_v4 -----------------------
             RaydiumAmmV4SwapEvent => |e: RaydiumAmmV4SwapEvent| {
                 log_file_only!(log_file, "RaydiumAmmV4SwapEvent: {e:?}\n");
+
+                // Update swap event counter
+                {
+                    let mut stats = event_counter.lock().unwrap();
+                    stats.swap_events += 1;
+                }
+
+                // Analyze swap for flash loan opportunities
+                let mut det = detector.lock().unwrap();
+                if let Some(opportunity) = det.analyze_ammv4_swap_event(&e) {
+                    drop(det); // Release lock before logging
+
+                    // Update opportunities counter
+                    {
+                        let mut stats = event_counter.lock().unwrap();
+                        stats.opportunities_found += 1;
+                    }
+
+                    // Calculate price spread percentage
+                    let spread_pct = (opportunity.price_b - opportunity.price_a) / opportunity.price_a * 100.0;
+
+                    // Only show high-quality opportunities (confidence >= 60% and spread >= 1%)
+                    if opportunity.confidence >= 60 && spread_pct >= 1.0 {
+                        // Format protocol names for display
+                        let protocol_a = match opportunity.pool_a_protocol {
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumClmm => "CLMM",
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumAmmV4 => "AMMv4",
+                        };
+                        let protocol_b = match opportunity.pool_b_protocol {
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumClmm => "CLMM",
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumAmmV4 => "AMMv4",
+                        };
+
+                        // Log to console with clear formatting
+                        println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                        println!("💰 FLASH LOAN OPPORTUNITY DETECTED");
+                        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                        println!("📊 Arbitrage Details:");
+                        println!("   Pool A (buy):    {} [{}]", opportunity.pool_a, protocol_a);
+                        println!("   Pool B (sell):   {} [{}]", opportunity.pool_b, protocol_b);
+                        println!("   Base Token:      {}", opportunity.base_token);
+                        println!("   Quote Token:     {}", opportunity.quote_token);
+                        println!("   Price A:         {:.10}", opportunity.price_a);
+                        println!("   Price B:         {:.10}", opportunity.price_b);
+                        println!("   Price Spread:    {:.2}%\n", spread_pct);
+
+                        println!("💵 Financial Breakdown:");
+                        println!("   Loan Amount:     {:>15} lamports ({:.6} SOL)",
+                            opportunity.loan_amount, opportunity.loan_amount as f64 / 1e9);
+                        println!("   Expected Profit: {:>15} lamports ({:.6} SOL)",
+                            opportunity.expected_profit, opportunity.expected_profit as f64 / 1e9);
+                        println!("   Confidence:      {}%\n", opportunity.confidence);
+
+                        println!("🎯 EXECUTION READY");
+                        println!("   Cross-protocol arb: {} ↔ {}", protocol_a, protocol_b);
+                        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+                    }
+
+                    // Write to opportunities log file
+                    if let Ok(mut file) = opportunities_log.lock() {
+                        let protocol_a = match opportunity.pool_a_protocol {
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumClmm => "CLMM",
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumAmmV4 => "AMMv4",
+                        };
+                        let protocol_b = match opportunity.pool_b_protocol {
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumClmm => "CLMM",
+                            solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumAmmV4 => "AMMv4",
+                        };
+                        let log_entry = format!(
+                            "{} | {} ↔ {} | Profit: {:.6} SOL | Spread: {:.2}% | Confidence: {}% | Loan: {:.6} SOL | Pool A: {} | Pool B: {}\n",
+                            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S"),
+                            protocol_a,
+                            protocol_b,
+                            opportunity.expected_profit as f64 / 1e9,
+                            spread_pct,
+                            opportunity.confidence,
+                            opportunity.loan_amount as f64 / 1e9,
+                            opportunity.pool_a,
+                            opportunity.pool_b
+                        );
+                        let _ = file.write_all(log_entry.as_bytes());
+                        let _ = file.flush();
+                    }
+                }
             },
             RaydiumAmmV4DepositEvent => |e: RaydiumAmmV4DepositEvent| {
                 log_file_only!(log_file, "RaydiumAmmV4DepositEvent: {e:?}\n");
@@ -450,6 +558,16 @@ fn create_event_callback(
             },
             RaydiumAmmV4AmmInfoAccountEvent => |e: RaydiumAmmV4AmmInfoAccountEvent| {
                 log_file_only!(log_file, "RaydiumAmmV4AmmInfoAccountEvent: {e:?}\n");
+
+                // Update pool state counter
+                {
+                    let mut stats = event_counter.lock().unwrap();
+                    stats.pool_updates += 1;
+                }
+
+                // Update pool state in detector for arbitrage analysis
+                let mut det = detector.lock().unwrap();
+                det.update_ammv4_pool_state(&e);
             },
             RaydiumClmmAmmConfigAccountEvent => |e: RaydiumClmmAmmConfigAccountEvent| {
                 log_file_only!(log_file, "RaydiumClmmAmmConfigAccountEvent: {e:?}\n");
@@ -465,7 +583,7 @@ fn create_event_callback(
 
                 // Update pool state in detector for arbitrage analysis
                 let mut det = detector.lock().unwrap();
-                det.update_pool_state(&e);
+                det.update_clmm_pool_state(&e);
             },
             RaydiumClmmTickArrayStateAccountEvent => |e: RaydiumClmmTickArrayStateAccountEvent| {
                 log_file_only!(log_file, "RaydiumClmmTickArrayStateAccountEvent: {e:?}\n");

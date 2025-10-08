@@ -1,0 +1,20 @@
+[package]
+name = "flash-loan-example-receiver"
+version = "0.1.0"
+description = "Example Flash Loan Receiver Program"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "flash_loan_example_receiver"
+
+[features]
+no-entrypoint = []
+no-idl = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+solana-program = "2.0"
+spl-token = "6.0"
+thiserror = "1.0"

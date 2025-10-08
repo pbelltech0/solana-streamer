@@ -1,0 +1,27 @@
+{
+  "name": "token-lending-flash-loan",
+  "version": "0.1.0",
+  "description": "SPL Token Lending Flash Loan - Test Client",
+  "scripts": {
+    "test:local": "ts-node scripts/test_flash_loan.ts localnet",
+    "test:devnet": "ts-node scripts/test_flash_loan.ts devnet",
+    "test:testnet": "ts-node scripts/test_flash_loan.ts testnet"
+  },
+  "keywords": [
+    "solana",
+    "flash-loan",
+    "defi",
+    "lending"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.87.0",
+    "@solana/spl-token": "^0.4.0",
+    "dotenv": "^16.3.0"
+  }
+}

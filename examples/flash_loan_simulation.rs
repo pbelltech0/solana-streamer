@@ -14,7 +14,7 @@ use solana_streamer_sdk::{
         YellowstoneGrpc,
     },
 };
-use solana_sdk::signature::Keypair;
+use solana_sdk::{signature::Keypair, pubkey::Pubkey};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -50,6 +50,8 @@ async fn run_simulation() -> Result<(), Box<dyn std::error::Error>> {
     let detector = Arc::new(Mutex::new(OpportunityDetector::new(
         100_000,            // Lower threshold: 0.0001 SOL for testing
         100_000_000_000,    // 100 SOL max
+        10_000_000_000,     // 10 SOL min per pool
+        50_000_000_000,     // 50 SOL min combined
     )));
 
     // Initialize transaction builder in SIMULATION MODE
@@ -104,7 +106,7 @@ async fn run_simulation() -> Result<(), Box<dyn std::error::Error>> {
                 drop(s);
 
                 let mut det = detector.lock().unwrap();
-                if let Some(opportunity) = det.analyze_swap_event(&swap_event) {
+                if let Some(opportunity) = det.analyze_clmm_swap_event(&swap_event) {
                     let mut s = stats.lock().unwrap();
                     s.opportunities_detected += 1;
                     drop(s);
@@ -186,7 +188,7 @@ async fn run_simulation() -> Result<(), Box<dyn std::error::Error>> {
                 drop(s);
 
                 let mut det = detector.lock().unwrap();
-                det.update_pool_state(&pool_event);
+                det.update_clmm_pool_state(&pool_event);
             }
         });
 

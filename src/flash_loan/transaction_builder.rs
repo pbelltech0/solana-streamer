@@ -72,37 +72,68 @@ impl FlashLoanTxBuilder {
     }
 
     /// Simulate flash loan execution without submitting transaction
+    ///
+    /// Arbitrage flow (borrowing quote token / token1):
+    /// 1. Borrow loan_amount of token1 (flash loan fee: 0.09%)
+    /// 2. Buy token0 at Pool A (low price): spend token1 → get token0 (swap fee: 0.25%)
+    /// 3. Sell token0 at Pool B (high price): sell token0 → get token1 (swap fee: 0.25%)
+    /// 4. Net received: loan * (1 - 0.0025)² * (price_b / price_a)
+    /// 5. Must repay: loan * (1 + 0.0009)
+    /// 6. Profit: received - repayment
     pub fn simulate_flash_loan_detailed(
         &self,
         opportunity: &ArbitrageOpportunity,
     ) -> SimulationResult {
         let loan_amount = opportunity.loan_amount;
 
-        // Calculate all fees
-        let flash_loan_fee = (loan_amount as u128 * 9 / 10000) as u64; // 0.09%
-        let swap_fee_a = (loan_amount as u128 * 25 / 10000) as u64;    // 0.25%
-        let swap_fee_b = (loan_amount as u128 * 25 / 10000) as u64;    // 0.25%
+        // Fee constants
+        const FLASH_LOAN_FEE_RATE: f64 = 0.0009; // 0.09% Solend
+        const SWAP_FEE_RATE: f64 = 0.0025;       // 0.25% per swap
+
+        // Calculate individual fees for reporting
+        let flash_loan_fee = (loan_amount as f64 * FLASH_LOAN_FEE_RATE) as u64;
+
+        // Calculate net amount after swap fees
+        // After two swaps: (1 - 0.0025)² = 0.99500625
+        let swap_fee_multiplier = (1.0 - SWAP_FEE_RATE) * (1.0 - SWAP_FEE_RATE);
+
+        // Total swap fees (implicit in the calculation)
+        // = loan - loan * 0.99500625 * (price_b / price_a) when converted back
+        let swap_fee_a = (loan_amount as f64 * SWAP_FEE_RATE) as u64;
+        let token0_amount = (loan_amount as f64 * (1.0 - SWAP_FEE_RATE)) / opportunity.price_a;
+        let swap_fee_b = (token0_amount * SWAP_FEE_RATE) as u64;
         let swap_fees = swap_fee_a + swap_fee_b;
         let total_fees = flash_loan_fee + swap_fees;
 
-        // Calculate expected outcomes
+        // Price spread
         let price_spread = opportunity.price_b - opportunity.price_a;
         let price_spread_pct = price_spread / opportunity.price_a;
 
-        // Gross profit from arbitrage
-        let gross_profit = (loan_amount as f64 * price_spread_pct) as u64;
+        // Price multiplier for arbitrage
+        let price_multiplier = opportunity.price_b / opportunity.price_a;
 
-        // Net profit after fees
-        let (net_profit, would_succeed, reason) = if gross_profit > total_fees {
-            let profit = gross_profit - total_fees;
+        // Net token1 received after both swaps
+        let net_received = loan_amount as f64 * swap_fee_multiplier * price_multiplier;
+
+        // Amount to repay (loan + flash loan fee)
+        let repayment = loan_amount as f64 * (1.0 + FLASH_LOAN_FEE_RATE);
+
+        // Gross profit (before subtracting repayment)
+        let gross_profit = net_received;
+
+        // Net profit after all fees
+        let net_profit_f64 = net_received - repayment;
+
+        let (net_profit, would_succeed, reason) = if net_profit_f64 > 0.0 {
             (
-                profit,
+                net_profit_f64 as u64,
                 true,
                 format!(
-                    "Profitable! Spread: {:.2}%, Gross: {} lamports, Fees: {} lamports",
+                    "Profitable! Spread: {:.2}%, Received: {:.0} lamports, Repay: {:.0} lamports, Net: {:.0} lamports",
                     price_spread_pct * 100.0,
-                    gross_profit,
-                    total_fees
+                    net_received,
+                    repayment,
+                    net_profit_f64
                 ),
             )
         } else {
@@ -110,8 +141,8 @@ impl FlashLoanTxBuilder {
                 0,
                 false,
                 format!(
-                    "Not profitable. Gross profit {} < Fees {}",
-                    gross_profit, total_fees
+                    "Not profitable. Received {:.0} < Repayment {:.0}",
+                    net_received, repayment
                 ),
             )
         };
@@ -119,7 +150,7 @@ impl FlashLoanTxBuilder {
         SimulationResult {
             would_succeed,
             loan_amount,
-            expected_profit: gross_profit,
+            expected_profit: gross_profit as u64,
             flash_loan_fee,
             swap_fees,
             total_fees,
