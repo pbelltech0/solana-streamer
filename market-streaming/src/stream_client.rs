@@ -5,10 +5,10 @@ use borsh::BorshDeserialize;
 use futures::{SinkExt, StreamExt};
 use solana_sdk::pubkey::Pubkey;
 use std::sync::Arc;
+use std::time::Duration;
 use yellowstone_grpc_client::GeyserGrpcClient;
 use yellowstone_grpc_proto::prelude::*;
-use solana_streamer_sdk::streaming::shred::StreamClientConfig;
-
+use yellowstone_grpc_proto::tonic::transport::ClientTlsConfig;
 /// Configuration for pool streaming
 #[derive(Clone, Debug)]
 pub struct StreamConfig {
@@ -42,13 +42,13 @@ impl Default for StreamConfig {
 
 /// Pool stream client for monitoring DEX pool state changes
 pub struct PoolStreamClient {
-    config: StreamClientConfig,
+    config: StreamConfig,
     state_cache: Arc<PoolStateCache>,
 }
 
 impl PoolStreamClient {
     /// Create a new pool stream client
-    pub fn new(config: StreamClientConfig, state_cache: Arc<PoolStateCache>) -> Self {
+    pub fn new(config: StreamConfig, state_cache: Arc<PoolStateCache>) -> Self {
         Self {
             config,
             state_cache,
@@ -57,14 +57,14 @@ impl PoolStreamClient {
 
     /// Start streaming pool account updates
     pub async fn start(&self) -> Result<()> {
-        // Build gRPC client
-        let mut builder = GeyserGrpcClient::build_from_shared(self.config.grpc_endpoint.clone())
-            .context("Failed to build gRPC client")?;
-
-        // Add auth token if provided
-        if let Some(token) = &self.config.auth_token {
-            builder = builder.x_token(Some(token.clone()))?;
-        }
+        // Build gRPC client with proper TLS and timeout configuration
+        let builder = GeyserGrpcClient::build_from_shared(self.config.grpc_endpoint.clone())
+            .context("Failed to build gRPC client")?
+            .x_token(self.config.auth_token.clone())?
+            .tls_config(ClientTlsConfig::new().with_native_roots())?
+            .max_decoding_message_size(128 * 1024 * 1024) // 128 MB
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30));
 
         // Connect
         let mut client = builder.connect().await

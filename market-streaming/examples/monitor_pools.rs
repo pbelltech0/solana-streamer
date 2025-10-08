@@ -2,11 +2,7 @@ use market_streaming::prelude::*;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use std::sync::Arc;
-use solana_streamer_sdk::streaming::{
-    grpc::ClientConfig,
-    yellowstone_grpc::{AccountFilter, TransactionFilter},
-    YellowstoneGrpc,
-};
+use yellowstone_grpc_proto::prelude::CommitmentLevel;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -20,36 +16,28 @@ async fn main() -> anyhow::Result<()> {
     let state_cache = Arc::new(PoolStateCache::new());
 
     // Example pool addresses - replace with actual high-TVL pools
-    let raydium_sol_usdc = Pubkey::from_str("CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK")?;
-    let orca_sol_usdc = Pubkey::from_str("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc")?;
-    let meteora_sol_usdc = Pubkey::from_str("LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo")?;
+    // Note: These are program IDs, not pool addresses. You need to replace with actual pool pubkeys
+    let raydium_pool = Pubkey::from_str("8sLbNZoA1cfnvMJLPfp98ZLAnFSYCFApfJKMbiXNLwxj")?; // Example Raydium CLMM pool
+    let orca_pool = Pubkey::from_str("HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ")?; // Example Orca Whirlpool
+    let meteora_pool = Pubkey::from_str("ARwi1S4DaiTG5DX7S4M4ZsrXqpMD1MrTmbu9ue2tpmEq")?; // Example Meteora DLMM pool
 
     // Configure streaming
-    let config: StreamConfig = StreamConfig {
+    let config = StreamConfig {
         grpc_endpoint: std::env::var("GRPC_ENDPOINT")
-            .unwrap_or_else(|_| "https://solana-yellowstone-grpc.publicnode.com:443".to_string()),
+            .unwrap_or_else(|_| "https://grpc.mainnet.solana.tools:443".to_string()),
         auth_token: std::env::var("GRPC_AUTH_TOKEN").ok(),
         pool_pubkeys: vec![
-            raydium_sol_usdc,
-            orca_sol_usdc,
-            meteora_sol_usdc,
+            raydium_pool,
+            orca_pool,
+            meteora_pool,
         ],
         protocols: vec![
             DexProtocol::RaydiumClmm,
             DexProtocol::OrcaWhirlpool,
             DexProtocol::MeteoraDlmm,
         ],
-        commitment: yellowstone_grpc_proto::prelude::CommitmentLevel::Processed,
+        commitment: CommitmentLevel::Processed,
     };
-
-    let mut config = ClientConfig::low_latency();
-    config.enable_metrics = true;
-
-    let grpc = YellowstoneGrpc::new_with_config(
-        "https://grpc.mainnet.solana.tools:443".to_string(),
-        None,
-        config,
-    )?;
 
     // Create and start pool stream client
     let client = PoolStreamClient::new(config, state_cache.clone());

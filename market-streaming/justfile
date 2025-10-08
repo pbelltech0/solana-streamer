@@ -1,0 +1,230 @@
+# Market Streaming Service - Justfile
+# A modern alternative to Make
+# Install just: https://github.com/casey/just
+# Usage: just <recipe>
+
+# List all available recipes
+default:
+    @just --list
+
+# Initial setup - create .env from example
+setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ ! -f .env ]; then
+        cp .env.example .env
+        echo "✓ Created .env file from .env.example"
+        echo "⚠ Please edit .env with your configuration before running"
+        echo "  Required: POOL_PUBKEYS, GRPC_ENDPOINT"
+    else
+        echo ".env already exists, skipping..."
+    fi
+
+# Check if environment is properly configured
+env-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Checking environment configuration..."
+    if [ ! -f .env ]; then
+        echo "✗ .env file not found!"
+        echo "  Run: just setup"
+        exit 1
+    fi
+    source .env
+    if [ -z "${GRPC_ENDPOINT:-}" ]; then
+        echo "✗ GRPC_ENDPOINT not set in .env"
+        exit 1
+    else
+        echo "✓ GRPC_ENDPOINT: $GRPC_ENDPOINT"
+    fi
+    if [ -z "${POOL_PUBKEYS:-}" ]; then
+        echo "⚠ POOL_PUBKEYS not set in .env"
+        echo "  Service will run but won't monitor any pools"
+    else
+        POOL_COUNT=$(echo $POOL_PUBKEYS | tr ',' '\n' | wc -l | tr -d ' ')
+        echo "✓ Monitoring $POOL_COUNT pool(s)"
+    fi
+    echo "✓ Environment configuration OK"
+
+# Build the service in debug mode
+build:
+    @echo "Building market-streaming service (debug)..."
+    cargo build --bin market-streaming-service
+    @echo "✓ Build complete!"
+
+# Build the service in release mode (optimized)
+build-release:
+    @echo "Building market-streaming service (release)..."
+    cargo build --release --bin market-streaming-service
+    @echo "✓ Release build complete!"
+    @echo "Binary: ../target/release/market-streaming-service"
+
+# Run cargo check (fast compile check)
+check:
+    @echo "Checking code..."
+    cargo check --bin market-streaming-service
+    @echo "✓ Check passed!"
+
+# Run clippy linter
+clippy:
+    @echo "Running clippy..."
+    cargo clippy --bin market-streaming-service -- -D warnings
+    @echo "✓ Clippy passed!"
+
+# Format code with rustfmt
+fmt:
+    @echo "Formatting code..."
+    cargo fmt
+    @echo "✓ Code formatted!"
+
+# Run the service in debug mode (with .env)
+run: env-check build
+    #!/usr/bin/env bash
+    set -a
+    source .env
+    set +a
+    echo "Starting market-streaming service (debug)..."
+    echo "Press Ctrl+C to stop"
+    echo ""
+    RUST_LOG=${RUST_LOG:-info} cargo run --bin market-streaming-service
+
+# Run the service in release mode (optimized)
+run-release: env-check build-release
+    #!/usr/bin/env bash
+    set -a
+    source .env
+    set +a
+    echo "Starting market-streaming service (release)..."
+    echo "Press Ctrl+C to stop"
+    echo ""
+    RUST_LOG=${RUST_LOG:-info} cargo run --release --bin market-streaming-service
+
+# Run with debug logging enabled
+run-debug: env-check build
+    #!/usr/bin/env bash
+    set -a
+    source .env
+    set +a
+    echo "Starting market-streaming service (debug logging)..."
+    echo "Press Ctrl+C to stop"
+    echo ""
+    RUST_LOG=debug cargo run --bin market-streaming-service
+
+# Run the pool monitoring example
+example:
+    #!/usr/bin/env bash
+    set -a
+    [ -f .env ] && source .env
+    set +a
+    echo "Running pool monitoring example..."
+    RUST_LOG=${RUST_LOG:-info} cargo run --example monitor_pools
+
+# Run tests
+test:
+    @echo "Running tests..."
+    cargo test
+    @echo "✓ Tests passed!"
+
+# Run tests with verbose output
+test-verbose:
+    @echo "Running tests (verbose)..."
+    cargo test -- --nocapture --test-threads=1
+
+# Install the binary to ~/.cargo/bin
+install: build-release
+    @echo "Installing market-streaming-service..."
+    cargo install --path . --bin market-streaming-service
+    @echo "✓ Installed to ~/.cargo/bin/market-streaming-service"
+    @echo "You can now run: market-streaming-service"
+
+# Clean build artifacts
+clean:
+    @echo "Cleaning build artifacts..."
+    cargo clean
+    @echo "✓ Clean complete!"
+
+# Update dependencies
+update:
+    @echo "Updating dependencies..."
+    cargo update
+    @echo "✓ Dependencies updated!"
+
+# Generate and open documentation
+doc:
+    @echo "Generating documentation..."
+    cargo doc --no-deps --open
+
+# Setup environment and build
+all: setup build
+    @echo "✓ Setup and build complete!"
+    @echo "Next steps:"
+    @echo "  1. Edit .env with your configuration"
+    @echo "  2. Run: just run"
+
+# Interactive quick start guide
+quick-start: setup
+    #!/usr/bin/env bash
+    echo "=== Market Streaming Quick Start ==="
+    echo ""
+    echo "Step 1: Edit your .env file"
+    echo "  Required settings:"
+    echo "    - GRPC_ENDPOINT: Your Yellowstone gRPC endpoint"
+    echo "    - POOL_PUBKEYS: Pool addresses to monitor (comma-separated)"
+    echo ""
+    echo "Step 2: Build and run"
+    echo "  Run: just run"
+    echo ""
+    echo "Common endpoints:"
+    echo "  - Public: https://grpc.mainnet.solana.tools:443"
+    echo "  - Helius: https://mainnet.helius-rpc.com (requires API key)"
+    echo ""
+    echo "Example pools to monitor:"
+    echo "  - Raydium SOL/USDC: 8sLbNZoA1cfnvMJLPfp98ZLAnFSYCFApfJKMbiXNLwxj"
+    echo "  - Orca SOL/USDC: HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ"
+    echo ""
+    read -p "Open .env in editor now? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        ${EDITOR:-nano} .env
+    fi
+
+# Show current configuration
+status: env-check
+    #!/usr/bin/env bash
+    source .env
+    echo "=== Current Configuration ==="
+    echo "  Endpoint: $GRPC_ENDPOINT"
+    echo "  Auth Token: ${GRPC_AUTH_TOKEN:+***SET***}${GRPC_AUTH_TOKEN:-Not set}"
+    echo "  Protocols: ${DEX_PROTOCOLS:-raydium,orca,meteora}"
+    echo "  Commitment: ${COMMITMENT_LEVEL:-processed}"
+    echo "  Stats Interval: ${STATS_INTERVAL:-10}s"
+    echo "  Cache Max Age: ${CACHE_MAX_AGE:-5000}ms"
+    if [ -n "${POOL_PUBKEYS:-}" ]; then
+        echo ""
+        echo "Monitored Pools:"
+        echo "$POOL_PUBKEYS" | tr ',' '\n' | nl
+    else
+        echo ""
+        echo "⚠ No pools configured"
+    fi
+
+# Run in development mode with auto-reload (requires cargo-watch)
+dev:
+    #!/usr/bin/env bash
+    if ! command -v cargo-watch &> /dev/null; then
+        echo "cargo-watch not installed"
+        echo "Install with: cargo install cargo-watch"
+        exit 1
+    fi
+    set -a
+    source .env
+    set +a
+    echo "Starting development mode with auto-reload..."
+    cargo watch -x 'run --bin market-streaming-service'
+
+# Install development tools
+dev-setup:
+    @echo "Installing development tools..."
+    cargo install cargo-watch
+    cargo install cargo-edit
+    @echo "✓ Development tools installed!"
