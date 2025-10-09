@@ -157,8 +157,25 @@ impl OpportunityDetector {
         // Get the pool state for this swap
         let pool_state = self.ammv4_pool_states.get(&event.amm)?;
 
-        // Create token pair
+        // Calculate price from this specific swap event
+        // This is more accurate than using cumulative pool data
+        let swap_price = self.calculate_price_from_swap_event(event)?;
+
+        // Update price feed with the swap-derived price
         let pair = TokenPair::new(pool_state.coin_mint, pool_state.pc_mint);
+
+        // Use a conservative liquidity estimate
+        let liquidity = self.estimate_ammv4_liquidity(pool_state);
+
+        self.update_price_feed(
+            pair.clone(),
+            event.amm,
+            swap_price,
+            liquidity,
+            pool_state.coin_mint,
+            pool_state.pc_mint,
+            PoolProtocol::RaydiumAmmV4,
+        );
 
         // Look for cross-pool arbitrage on this token pair
         self.find_arbitrage_opportunity(&pair)
@@ -244,7 +261,8 @@ impl OpportunityDetector {
     }
 
     /// Calculate price (pc/coin) from AMMv4 pool state
-    /// Uses cumulative swap amounts to estimate current price
+    /// DEPRECATED: This method uses cumulative swap amounts which produces incorrect prices
+    /// Kept for backward compatibility with pool state updates
     fn calculate_ammv4_price(&self, pool: &AmmInfo) -> Option<f64> {
         let swap_coin_in = pool.out_put.swap_coin_in_amount;
         let swap_pc_out = pool.out_put.swap_pc_out_amount;
@@ -287,6 +305,31 @@ impl OpportunityDetector {
         }
 
         Some(avg_price)
+    }
+
+    /// Calculate price from an AMMv4 swap event
+    /// Uses actual swap execution data for more accurate pricing
+    fn calculate_price_from_swap_event(&self, event: &RaydiumAmmV4SwapEvent) -> Option<f64> {
+        // For base_input swaps: amount_in and minimum_amount_out are set
+        // For base_output swaps: max_amount_in and amount_out are set
+
+        let price = if event.amount_in > 0 && event.minimum_amount_out > 0 {
+            // Base input swap: coin -> pc
+            // Price = pc/coin ratio from the swap
+            event.minimum_amount_out as f64 / event.amount_in as f64
+        } else if event.max_amount_in > 0 && event.amount_out > 0 {
+            // Base output swap: pc -> coin
+            // Price = pc/coin ratio
+            event.max_amount_in as f64 / event.amount_out as f64
+        } else {
+            return None;
+        };
+
+        if !price.is_finite() || price <= 0.0 {
+            return None;
+        }
+
+        Some(price)
     }
 
     /// Estimate liquidity for AMMv4 pool based on cumulative swap volumes
@@ -397,6 +440,12 @@ impl OpportunityDetector {
 
         // Must have at least 1% spread to be worth it after fees
         if price_spread_pct < 0.01 {
+            return None;
+        }
+
+        // Sanity check: reject unrealistic spreads (>25%)
+        // Such large spreads are almost always data quality issues
+        if price_spread_pct > 0.25 {
             return None;
         }
 

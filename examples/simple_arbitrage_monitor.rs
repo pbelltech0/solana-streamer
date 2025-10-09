@@ -110,19 +110,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // Check for arbitrage opportunity
                     let mut det = detector.lock().unwrap();
                     if let Some(opp) = det.analyze_clmm_swap_event(&e) {
-                        let spread = (opp.price_b - opp.price_a) / opp.price_a * 100.0;
+                        let price_spread = (opp.price_b - opp.price_a) / opp.price_a * 100.0;
+                        let profit_roi = (opp.expected_profit as f64 / opp.loan_amount as f64) * 100.0;
 
                         {
                             let mut s = stats.lock().unwrap();
                             s.opportunities += 1;
 
-                            if opp.confidence >= 60 && spread >= 1.0 {
+                            if opp.confidence >= 60 && price_spread >= 1.0 {
                                 s.high_confidence_opps += 1;
                             }
                         }
 
                         // Display high-quality opportunities
-                        if opp.confidence >= 60 && spread >= 1.0 {
+                        if opp.confidence >= 60 && price_spread >= 1.0 {
                             let protocol_a = match opp.pool_a_protocol {
                                 solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumClmm => "CLMM",
                                 solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumAmmV4 => "AMMv4",
@@ -135,10 +136,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("\n💰 ARBITRAGE OPPORTUNITY");
                             println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
                             println!("  Route: {} ↔ {}", protocol_a, protocol_b);
-                            println!("  Profit: {:.6} SOL ({:.2}%)",
+                            println!("  Profit: {:.6} SOL ({:.1}% ROI)",
                                 opp.expected_profit as f64 / 1e9,
-                                spread);
+                                profit_roi);
                             println!("  Loan: {:.3} SOL", opp.loan_amount as f64 / 1e9);
+                            println!("  Price Spread: {:.2}%", price_spread);
                             println!("  Confidence: {}%", opp.confidence);
                             println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
                         }
@@ -154,18 +156,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     let mut det = detector.lock().unwrap();
                     if let Some(opp) = det.analyze_ammv4_swap_event(&e) {
-                        let spread = (opp.price_b - opp.price_a) / opp.price_a * 100.0;
+                        let price_spread = (opp.price_b - opp.price_a) / opp.price_a * 100.0;
+                        let profit_roi = (opp.expected_profit as f64 / opp.loan_amount as f64) * 100.0;
 
                         {
                             let mut s = stats.lock().unwrap();
                             s.opportunities += 1;
 
-                            if opp.confidence >= 60 && spread >= 1.0 {
+                            if opp.confidence >= 60 && price_spread >= 1.0 {
                                 s.high_confidence_opps += 1;
                             }
                         }
 
-                        if opp.confidence >= 60 && spread >= 1.0 {
+                        if opp.confidence >= 60 && price_spread >= 1.0 {
                             let protocol_a = match opp.pool_a_protocol {
                                 solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumClmm => "CLMM",
                                 solana_streamer_sdk::flash_loan::PoolProtocol::RaydiumAmmV4 => "AMMv4",
@@ -178,10 +181,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("\n💰 ARBITRAGE OPPORTUNITY");
                             println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
                             println!("  Route: {} ↔ {}", protocol_a, protocol_b);
-                            println!("  Profit: {:.6} SOL ({:.2}%)",
+                            println!("  Profit: {:.6} SOL ({:.1}% ROI)",
                                 opp.expected_profit as f64 / 1e9,
-                                spread);
+                                profit_roi);
                             println!("  Loan: {:.3} SOL", opp.loan_amount as f64 / 1e9);
+                            println!("  Price Spread: {:.2}%", price_spread);
                             println!("  Confidence: {}%", opp.confidence);
                             println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
                         }
