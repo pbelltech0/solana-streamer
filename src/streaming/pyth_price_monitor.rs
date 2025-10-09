@@ -72,7 +72,7 @@ impl PythPriceData {
 
 /// Pyth price monitor for real-time oracle price feeds
 pub struct PythPriceMonitor {
-    rpc_client: Arc<RpcClient>,
+    _rpc_client: Arc<RpcClient>,
     price_feeds: Arc<DashMap<Pubkey, PythPriceFeedConfig>>,
     price_cache: Arc<DashMap<Pubkey, RwLock<PythPriceData>>>,
     update_interval_ms: u64,
@@ -82,7 +82,7 @@ impl PythPriceMonitor {
     /// Create new Pyth price monitor
     pub fn new(rpc_url: String, update_interval_ms: u64) -> Self {
         Self {
-            rpc_client: Arc::new(RpcClient::new(rpc_url)),
+            _rpc_client: Arc::new(RpcClient::new(rpc_url)),
             price_feeds: Arc::new(DashMap::new()),
             price_cache: Arc::new(DashMap::new()),
             update_interval_ms,
@@ -126,7 +126,7 @@ impl PythPriceMonitor {
     }
 
     /// Update a single price feed
-    async fn update_price_feed(&self, price_account: &Pubkey, config: &PythPriceFeedConfig) -> Result<()> {
+    async fn update_price_feed(&self, price_account: &Pubkey, _config: &PythPriceFeedConfig) -> Result<()> {
         let price_data = self.fetch_price(price_account).await?;
 
         // Update cache
